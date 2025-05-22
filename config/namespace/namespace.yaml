@@ -6,3 +6,18 @@ metadata:
     app.kubernetes.io/name: aibrix
     app.kubernetes.io/managed-by: kustomize
   name: system
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all
+  namespace: aibrix-system
+spec:
+  podSelector: {}
+  ingress:
+  - {} 
+  egress:
+  - {}
+  policyTypes:
+  - Ingress
+  - Egress

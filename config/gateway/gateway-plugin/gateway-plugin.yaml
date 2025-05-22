@@ -161,10 +161,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /v1/chat/completions
-        - path:
-            type: PathPrefix
-            value: /v1/completions
+            value: /
       backendRefs:
         - name: aibrix-gateway-plugins
           port: 50052

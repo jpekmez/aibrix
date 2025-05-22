@@ -31,9 +31,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 )
 
-var (
-	controllerKind = pav1.GroupVersion.WithKind("PodAutoscaler") // Define the resource type for the controller
-)
+var controllerKind = pav1.GroupVersion.WithKind("PodAutoscaler") // Define the resource type for the controller
 
 // MakeHPA creates an HPA resource from a PodAutoscaler resource.
 func makeHPA(pa *pav1.PodAutoscaler) (*autoscalingv2.HorizontalPodAutoscaler, error) {
@@ -102,7 +100,7 @@ func makeHPA(pa *pav1.PodAutoscaler) (*autoscalingv2.HorizontalPodAutoscaler, er
 			}}
 
 		default:
-			targetQuantity := resource.NewQuantity(int64(targetValue), resource.DecimalSI)
+			targetQuantity := resource.MustParse(source.TargetValue)
 			hpa.Spec.Metrics = []autoscalingv2.MetricSpec{{
 				Type: autoscalingv2.PodsMetricSourceType,
 				Pods: &autoscalingv2.PodsMetricSource{
@@ -111,7 +109,7 @@ func makeHPA(pa *pav1.PodAutoscaler) (*autoscalingv2.HorizontalPodAutoscaler, er
 					},
 					Target: autoscalingv2.MetricTarget{
 						Type:         autoscalingv2.AverageValueMetricType,
-						AverageValue: targetQuantity,
+						AverageValue: &targetQuantity,
 					},
 				},
 			}}

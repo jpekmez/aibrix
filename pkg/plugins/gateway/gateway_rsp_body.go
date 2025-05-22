@@ -36,6 +36,14 @@ import (
 )
 
 func (s *Server) HandleResponseBody(ctx context.Context, requestID string, req *extProcPb.ProcessingRequest, user utils.User, rpm int64, model string, stream bool, traceTerm int64, hasCompleted bool) (*extProcPb.ProcessingResponse, bool) {
+	return &extProcPb.ProcessingResponse{
+		Response: &extProcPb.ProcessingResponse_ResponseBody{
+			ResponseBody: &extProcPb.BodyResponse{
+				Response: &extProcPb.CommonResponse{}, // No modifications to the body
+			},
+		},
+	}, hasCompleted
+
 	b := req.Request.(*extProcPb.ProcessingRequest_ResponseBody)
 
 	var res openai.ChatCompletion
