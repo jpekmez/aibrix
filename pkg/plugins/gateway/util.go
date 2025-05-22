@@ -31,6 +31,26 @@ import (
 // validateRequestBody validates input by unmarshaling request body into respective openai-golang struct based on requestpath.
 // nolint:nakedret
 func validateRequestBody(requestID, requestPath string, requestBody []byte, user utils.User) (model, message string, stream bool, errRes *extProcPb.ProcessingResponse) {
+	var jsonMap map[string]any
+	if err := json.Unmarshal(requestBody, &jsonMap); err != nil {
+		klog.ErrorS(err, "error to unmarshal request body", "requestID", requestID, "requestBody", string(requestBody))
+		errRes = buildErrorResponse(envoyTypePb.StatusCode_BadRequest, "error processing request body", HeaderErrorRequestBodyProcessing, "true")
+		return
+	}
+	if _, ok := jsonMap["model"]; !ok {
+		klog.ErrorS(nil, "model not found in request body", "requestID", requestID, "requestBody", string(requestBody))
+		errRes = buildErrorResponse(envoyTypePb.StatusCode_BadRequest, "model not found in request body", HeaderErrorRequestBodyProcessing, "true")
+		return
+	}
+	model = jsonMap["model"].(string)
+	if streamVal, ok := jsonMap["stream"]; ok {
+		if streamVal.(bool) {
+			stream = true
+		}
+	}
+	klog.InfoS("validateRequestBody", "requestID", requestID, "requestPath", requestPath, "model", model, "message", message, "stream", stream)
+	return
+
 	var streamOptions openai.ChatCompletionStreamOptionsParam
 	if requestPath == "/v1/chat/completions" {
 		var jsonMap map[string]json.RawMessage
