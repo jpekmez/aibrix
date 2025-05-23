@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    cloud.google.com/project-id: cohere-artifacts
+    cohere.com/inject-bearer-token-to-init-container: "true"
+    cohere.com/inject-gcp-spiffe-auth-proxy: enabled
+    multicluster.admiralty.io/elect: ""
+    multicluster.admiralty.io/label-keys-to-skip-prefixing: kueue.x-k8s.io/queue-name,kueue.x-k8s.io/priority-class
+    cloud.google.com/service-account-email: model-serving-gh-actions@cohere-artifacts.iam.gserviceaccount.com
+    cloud.google.com/workload-identity-pool: projects/598136886625/locations/global/workloadIdentityPools/spire-oidc
+    cohere.com/inject-hugepages: "true"
+    multicluster.admiralty.io/proxy-pod-scheduling-constraints: '{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"multicluster.admiralty.io/cluster-target-name","operator":"In","values":["cw-training-prod"]}]}]}}}}'
+  labels:
+    model.aibrix.ai/name: command-r7b-12-2024 # Note: The label value `model.aibrix.ai/name` here must match with the service name.
+    model.aibrix.ai/port: "8080"
+  name: command-r7b-12-2024
+  namespace: bh-private-models
+spec:
+  replicas: 1
+  serviceName: command-r7b-12-2024
+  selector:
+    matchLabels:
+      model.aibrix.ai/name: command-r7b-12-2024
+  template:
+    metadata:
+      annotations:
+        multicluster.admiralty.io/elect: ""
+        cloud.google.com/service-account-email: model-serving-gh-actions@cohere-artifacts.iam.gserviceaccount.com
+      labels:
+        model.aibrix.ai/name: command-r7b-12-2024
+        multicluster.admiralty.io/workflow: single-container-benchmark
+        kueue.x-k8s.io/queue-name: co-platform-shared-queue
+    spec:
+      imagePullSecrets:
+        - name: us-docker-artifact-registry
+        - name: us-central1-docker-artifact-registry
+      nodeSelector:
+        nvidia.com/gpu.product: NVIDIA-H100-80GB-HBM3
+      tolerations:
+        - effect: NoSchedule
+          key: cohere.ai/cloud
+          operator: Equal
+          value: oracle
+        - effect: NoSchedule
+          key: cohere.ai/reserved
+          operator: Equal
+          value: multicloud-inference
+        - effect: NoSchedule
+          key: cohere.ai/nvidia-h100-8g
+          operator: Exists
+      containers:
+        - image: us-docker.pkg.dev/cohere-artifacts/replicated/single-serving-takane-7b-04-2025-h100-fp8-tp1:v0.8.1-04222025
+          imagePullPolicy: IfNotPresent
+          name: cohere
+          env:
+            - name: AZURE_MODE
+              value: "true"
+            - name: ENVIRONEMENT
+              value: "DEV"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+              scheme: HTTP
+            failureThreshold: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+              scheme: HTTP
+            failureThreshold: 30
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    model.aibrix.ai/name: command-r7b-12-2024
+    prometheus-discovery: "true"
+    mirror.linkerd.io/exported: "true"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+  name: command-r7b-12-2024 # Note: The Service name must match the label value `model.aibrix.ai/name` in the Deployment
+  namespace: bh-private-models
+spec:
+  ports:
+    - name: serve
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: metrics
+      port: 8002
+      protocol: TCP
+      targetPort: 8002
+  selector:
+    model.aibrix.ai/name: command-r7b-12-2024
+  clusterIP: None
+  type: ClusterIP

@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    cloud.google.com/project-id: cohere-artifacts
+    cohere.com/inject-bearer-token-to-init-container: "true"
+    cohere.com/inject-gcp-spiffe-auth-proxy: enabled
+    multicluster.admiralty.io/elect: ""
+    multicluster.admiralty.io/label-keys-to-skip-prefixing: kueue.x-k8s.io/queue-name,kueue.x-k8s.io/priority-class
+    cloud.google.com/service-account-email: model-serving-gh-actions@cohere-artifacts.iam.gserviceaccount.com
+    cloud.google.com/workload-identity-pool: projects/598136886625/locations/global/workloadIdentityPools/spire-oidc
+    cohere.com/inject-hugepages: "true"
+    # multicluster.admiralty.io/proxy-pod-scheduling-constraints: '{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"multicluster.admiralty.io/cluster-target-name","operator":"In","values":["cw-training-prod"]}]}]}}}}'
+  labels:
+    model.aibrix.ai/name: embed-v3
+    model.aibrix.ai/port: "8080"
+  name: embed-v3
+  namespace: bh-private-models
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      model.aibrix.ai/name: embed-v3
+  template:
+    metadata:
+      # annotations:
+      #   multicluster.admiralty.io/elect: ""
+      #   cloud.google.com/service-account-email: model-serving-gh-actions@cohere-artifacts.iam.gserviceaccount.com
+      labels:
+        model.aibrix.ai/name: embed-v3
+        # multicluster.admiralty.io/workflow: single-container-benchmark
+        kueue.x-k8s.io/queue-name: co-platform-shared-queue
+    spec:
+      imagePullSecrets:
+        - name: us-docker-artifact-registry
+        - name: us-central1-docker-artifact-registry
+      nodeSelector:
+        cloud.google.com/gke-accelerator: nvidia-l4
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      containers:
+        - image: us-docker.pkg.dev/cohere-artifacts/replicated/single-serving-embed-multilingual-mmodal-03:v0.8.1-05142025-2
+          imagePullPolicy: IfNotPresent
+          name: cohere
+          env:
+            - name: AZURE_MODE
+              value: "true"
+            - name: ENVIRONEMENT
+              value: "DEV"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+              scheme: HTTP
+            failureThreshold: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+              scheme: HTTP
+            failureThreshold: 30
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    model.aibrix.ai/name: embed-v3
+    prometheus-discovery: "true"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+  name: embed-v3
+  namespace: bh-private-models
+spec:
+  ports:
+    - name: serve
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: metrics
+      port: 8002
+      protocol: TCP
+      targetPort: 8002
+  selector:
+    model.aibrix.ai/name: embed-v3
+  type: ClusterIP
