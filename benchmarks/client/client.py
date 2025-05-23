@@ -68,7 +68,7 @@ async def send_request_streaming(client: openai.AsyncOpenAI,
             temperature=0,
             max_tokens=max_output,
             stream=True,
-            stream_options={"include_usage": True},
+            # stream_options={"include_usage": True},
         )
         if hasattr(response_stream, 'response') and hasattr(response_stream.response, 'headers'):
             target_pod = response_stream.response.headers.get('target-pod')

@@ -26,7 +26,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-const podMetricPort = "8000"
+const podMetricPort = "8080"
 
 var nilPod = &v1.Pod{}
 
